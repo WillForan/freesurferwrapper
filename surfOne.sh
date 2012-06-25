@@ -46,12 +46,17 @@ if [ -n "$dcmdir" ]; then
  echo
 fi
 
-[ -z "$SUBJECTS_DIR" -o ! -d "$SUBJECTS_DIR" ] && echo "SUBJECTS_DIR must be defined and exist as a directory" && exit 1
+#### Sanity checks ######
+
 [ -z "$niifile"      -o ! -r "$niifile"      ] && echo "nifti input must (-i $niifile) must exist"             && exit 1
 [ -z "$subjctid" ]                             && echo "need subjectid (-i) to exist"                          && exit 1
+ 
+# subjects dir is likely exported already
+[ -z "$SUBJECTS_DIR" -o ! -d "$SUBJECTS_DIR" ] && echo "SUBJECTS_DIR must be defined and exist as a directory" && exit 1
+
+# we can find sane defaults if these aren't provided
 [ -z "$TYPE" ]                                 && TYPE=$(basename $(dirname $SUBJECTS_DIR))
 [ -z "$EMAILS" ]                               && EMAILS="foranw@upmc.edu"
- 
 
 ###############
 ## submit to qsub 

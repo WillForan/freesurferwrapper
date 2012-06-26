@@ -33,10 +33,13 @@ esac
 # setup tool path and vars
 source /home/foranw/src/freesurfersearcher/ni_path_local.bash
 
+# try to prepend lunadir if it's been stripped
+[ ! -r $subjdir ] && subjdir=$LUNADIR/$subjdir
+[ ! -r $niifile ] && niifile=$LUNADIR/$niifile
 
 # setup local vars
 [ -z "$subjctid" ] && echo "no subjctid!" && exit 1
-[ -z "$subjdir" -o ! -d "$subjdir" ] && echo "no SUBJECTS_DIR!" && exit 1
+[ -z "$subjdir" -o ! -d "$subjdir" ] && echo "no SUBJECTS_DIR! ($subjdir $SUBJECTS_DIR)" && exit 1
 export SUBJECTS_DIR=$subjdir
 
 

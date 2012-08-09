@@ -80,10 +80,10 @@ done
 ###### TYPE
 # if we can figure out what we're dealing with by looking at type:
 case $TYPE in 
- "Reward")  SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"       && rawdir="MRCTR" ;;
- "AutFace") SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/" ;;
- "MM")      SUBJECTS_DIR="/data/Luna1/Multimodal/" ;;
- "list")    listtypes;;
+ "Reward")     SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR" ;;
+ "AutFace"|AF) SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/" ;;
+ "MM")         SUBJECTS_DIR="/data/Luna1/Multimodal/" ;;
+ "list")       listtypes;;
  "")        ;; # no one says you have to put a type in
  *)        echo "Unknown type! use:" && listtypes ;;
 esac
@@ -138,7 +138,7 @@ if [ -n "$dcmdir" -a -z "$niifile" ]; then
  mkdir -p $ragedir/$subjectid/ || exit 1
 
  # convert raw to nifti
- dcm2nii -d N -e N -f N -p N -x N -r N * || exit 1 # doesn't always return failure when it doesn't work
+ dcm2nii -c N -e N -f N -p N -x N -r N * || exit 1 # doesn't always return failure when it doesn't work
 
  # move them (or exit if they don't exist/cant move)
  mv *nii.gz $ragedir/$subjectid/ || exit 1

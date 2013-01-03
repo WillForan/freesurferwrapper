@@ -43,12 +43,15 @@
 ##
 
 function helpmsg {
+   # print the top of this file
    sed -n 's/^## //p;/##END/q' $0; exit 1
 }
 function listtypes {
+ # parse out only the switches that set SUBJECT_DIR (options to type)
  egrep '"\).*SUBJECTS_' $0| sed -e 's/"//g;s/)//;' && exit 1
 }
 
+# raid is mounted funny depending on host
 case $HOSTNAME in
 *gromit*)
    LUNADIR="/raid/r3/p2/Luna"
@@ -80,7 +83,7 @@ done
 ###### TYPE
 # if we can figure out what we're dealing with by looking at type:
 case $TYPE in 
- "Reward")     SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR" ;;
+ "Reward")     SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR_Org" ;;
  "AutFace"|AF) SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/" ;;
  "MM")         SUBJECTS_DIR="/data/Luna1/Multimodal/" ;;
  "list")       listtypes;;
@@ -111,8 +114,11 @@ fi
 ## guess at dcmdir if no nii and no dcmdir provided
 if [ -z "$dcmdir" -a -z "$niifile" ]; then
  # assumptions:
- #  * experiment is one level above SUBJECT_DIR
+ #  * experiment files are one level above SUBJECT_DIR
+ #     -- need ragedir=$(dirname $SUBJECTS_DIR)/mprage, will make $ragedir/$subjectid/
+ #        eg /data/Luna1/AutismFaces/mprage/$subjid
  #  * rawdir/subject/*rage* is a directory with mprage
+ #             
  
  dcmdir=$LUNADIR/Raw/$rawdir/$subjectid/*rage*/
  [ ! -d $dcmdir ] && echo "raw not where expected for $subjectid ($dcmdir), use -d" && exit 1
@@ -134,6 +140,9 @@ if [ -n "$dcmdir" -a -z "$niifile" ]; then
  # check that no nii's already exist
  ls $dcmdir/*nii.gz 2>/dev/null && echo "already have nii files in dcm folder ($dcmdir), use those (-n)?" && exit 1
  # TODO?: use them? move them?
+
+ # should provide dicom
+ ls $ragedir/$subjectid/*nii.gz 2>/dev/null >&2 && echo "already have nii files, use those (-n $ragedir/$subjectid/*nii.gz)?" && exit 1
  
  mkdir -p $ragedir/$subjectid/ || exit 1
 
@@ -146,7 +155,7 @@ if [ -n "$dcmdir" -a -z "$niifile" ]; then
 
  # with dcm2nii options and initial check, there should be only one niifile, use that
  [ "$(ls $ragedir/$subjectid/*nii.gz |wc -l)" != 1 ] && echo "there was not 1 and only 1 nii file produced!" && exit 1
- niifile="$ragedir/$subjectid/*nii.gz"
+ niifile="$(ls $ragedir/$subjectid/*nii.gz)"
 fi
 
 
@@ -174,7 +183,7 @@ tail -n1 ${SUBJECTS_DIR}/$subjectid/scripts/recon-all.log 2>/dev/null |
   grep 'without error' && echo "already finished without error" && exit 1
 
 # check if already in queue
-qstat -f | grep FS-$TYPE-$subjectid && echo "FS-$TYPE-$subjectid already in que" && exit 1
+qstat -f | grep FS-$TYPE-$subjectid && echo "FS-$TYPE-$subjectid already in queue" && exit 1
 
 set -ex
  # use -h to hold by default

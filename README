@@ -1,6 +1,11 @@
 given id and nifti, run reconall via qsub
 
-eg.
+see ./surfOne.sh from most recent help
+
+
+
+in the most complicated invocation
+
 export SUBJECTS_DIR=/raid/r3/p2/Luna/Rest/FS_Subjets
 ./surfOne.sh -i 10909 -n /data/Luna1/Raw/MultiModal/10909_20111202/axial_mprage_G2_256x192.5/20111202_130327axialmprageG21090220111202s005a1001.nii.gz
 

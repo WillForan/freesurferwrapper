@@ -2,6 +2,12 @@ given id and nifti, run reconall via qsub
 
 see ./surfOne.sh from most recent help
 
+simplest invocation
+./surfOne.sh -t WM -i 10897_20111123
+
+where WM is an aliais for WorkingMemory (see -t listtypes) and
+ /data/Luna1/Raw/WorkingMemory/10897_20111132 has subject scan data
+ /data/Luna1/WorkingMemory/{mprage/,FS_Subjects/} direcotires exist for FS output
 
 
 in the most complicated invocation
@@ -23,11 +29,13 @@ and submits FS-Rest-10909 as a recon-all qsub job
 surfOne options:
 
     * -i     subjctid (required)
-    * -n      niifile (required)
-    * -s SUBJECTS_DIR (required, likely already exported in env.)
-    * -t         TYPE (optional, extracted from SUBJECTS_DIR if not given)
-    * -e       EMAILS (optional, default to foranw@upmc.edu)
-    * -d       dcmdir (unimplemented)
+    * -t         type (suggested!, see -t listtype, extacted from SUBJECTS_DIR if undefined)
+
+    * -n      niifile (optional if using -t or -d )
+    * -d       dcmdir (optional if -t or -n, searches raw/SUBJID/*rage*/ when undefined)
+
+    * -s SUBJECTS_DIR (optional if -t, tries to use env var otherwise)
+    * -e       EMAILS (optional, default to willforan+upmc@gmail.com)
 
 
 wrapper:          surfOne.sh

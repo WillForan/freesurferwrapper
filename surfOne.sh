@@ -9,7 +9,13 @@
 ##  
 ##  surfOne.sh   -i ID -d DCMDIR [ -s SUBJECTS_DIR] [ -r rawdir ] 
 ##  surfOne.sh   -i ID -n NIFILE [ -s SUBJECTS_DIR] [ -r rawdir ] 
-## 
+##
+##  generally the first invocation works b/c studies are originzed within
+##   /data/Luna1/Raw/TYPE/SUBJID and /data/Luna1/TYPE/{mprage,FS_Subjects}
+##  where SUBJID=scandate_lunaid
+##  mprage niftis are stored in /data/Luna1/TYPE/mprage
+##  and FS output is in /data/Luna1/TYPE/FS_Subjects/SUBJECT_ID
+##
 ##
 ##  -i SUBJID       subject ID as it will be known by freesurfer (eg lunaid_date)
 ##  -t TYPE         can set SUBJECT_DIR and raw data directories
@@ -21,14 +27,15 @@
 ##  -d DCMDIR       create and use nii from dcm dir 
 ##                  nii.gz stored in FS_SUBJ/../mprage/subj/
 ##                  alternative to -n, -d is ignored if -n is provided
+##                  can omit if using -t
 ##  -n NIFILE       use NIFILE as nifti for reconall  
 ##                  alternative to -d, forces -d to be  ignored
 ##  -s SUBJECTS_DIR freesurfer subjects directory
-##                  ommit if exported in environment
+##                  can omit if -t is defined or is exported in environment
 ##  -r RAWDIR       where the data is: $LUNADIR/Raw/{RAWDIR}/SUBJECT_ID/*mprage*/*dmc
-##                  omit if same name as $SUBJECTS_DIR/..
+##                  can omit if -t is defined or is the same name as $SUBJECTS_DIR/..
 ##  -e EMAIL        notifications from qsub 
-##                  omit if willforan@gmail.com is good, or export EMAILS set
+##                  can omit if willforan+upmc@gmail.com is good, or export EMAILS set
 ##
 ## 
 ##  job gets passed to queReconAll.sh which will run on gromit
@@ -54,6 +61,7 @@ function listtypes {
 # raid is mounted funny depending on host
 case $HOSTNAME in
 *gromit*)
+   # as of 2013-03-11 this is unnessary. Mathew has added the sym link to gromit
    LUNADIR="/raid/r3/p2/Luna"
    ;;
 *wallace*)
@@ -82,18 +90,23 @@ done
 
 ###### TYPE
 # if we can figure out what we're dealing with by looking at type:
+# generally we have 
+#  /data/Luna1/Raw/TYPE/scandate_subjid
+#  /data/Luna1/TYPE/{FS_Subjects,mprage}
 case $TYPE in 
- "Reward")     SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR_Org" ;;
- "AutFace"|AF) SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/" ;;
- "MM")         SUBJECTS_DIR="/data/Luna1/Multimodal/" ;;
- "list")       listtypes;;
- "")        ;; # no one says you have to put a type in
- *)        echo "Unknown type! use:" && listtypes ;;
+ WM|WorkingMemory) SUBJECTS_DIR="/data/Luna1/WorkingMemory/FS_Subjects/";TYPE=WorkingMemory ;; # added 2013-03-12
+ "Reward")         SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR_Org" ;;
+ "AutFace"|AF)     SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/" ;;
+ AF2)              SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects_2/" ;;
+ "MM")             SUBJECTS_DIR="/data/Luna1/Multimodal/" ;;
+ "list")           listtypes;;
+ "")               ;; # no one says you have to put a type in
+ *)                echo "Unknown type! use:" && listtypes ;;
 esac
 
 # sane defaults if these aren't provided
 [ -z "$TYPE" ]      && TYPE=$(basename $(dirname $SUBJECTS_DIR))
-[ -z "$EMAILS" ]    && EMAILS="willforan@gmail.com"
+[ -z "$EMAILS" ]    && EMAILS="willforan+upmc@gmail.com"
 [ -z "$rawdir" ]    && rawdir=$TYPE
 
 
@@ -123,8 +136,8 @@ if [ -z "$dcmdir" -a -z "$niifile" ]; then
  dcmdir=$LUNADIR/Raw/$rawdir/$subjectid/*rage*/
  [ ! -d $dcmdir ] && echo "raw not where expected for $subjectid ($dcmdir), use -d" && exit 1
 
- echo $dcmdir
- exit
+ #echo $dcmdir
+ #exit
 fi
 
 # try using dcmdir to make and set niifile

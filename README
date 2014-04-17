@@ -5,6 +5,9 @@ see ./surfOne.sh from most recent help
 simplest invocation
 ./surfOne.sh -t WM -i 10897_20111123
 
+# if torque is down
+USETMUX=1 ./surfOne.sh -t WM -i 10897_20111123
+
 where WM is an aliais for WorkingMemory (see -t listtypes) and
  /data/Luna1/Raw/WorkingMemory/10897_20111132 has subject scan data
  /data/Luna1/WorkingMemory/{mprage/,FS_Subjects/} direcotires exist for FS output

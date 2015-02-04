@@ -54,23 +54,41 @@ function helpmsg {
    # print the top of this file
    sed -n 's/^## //p;/##END/q' $0; exit 1
 }
-function listtypes {
- # parse out only the switches that set SUBJECT_DIR (options to type)
- egrep '"\).*SUBJECTS_' $0| sed -e 's/"//g;s/)//;' && exit 1
+function runit {
+  # what vars to use
+  # default to big list
+  vars="subjectid=\"$subjectid\",niifile=\"${niifile##$LUNADIR}\",subjdir=\"${SUBJECTS_DIR##$LUNADIR}\",TYPE=\"$TYPE\" "
+  [ -n "$1" ] && vars="$@" #"subjdir=\"${SUBJECTS_DIR}\",subjectid=\"$subjectid\" "
+
+  if [ -n "$USETMUX" ]; then
+     # check we aren't already running it
+     tmux list-windows | grep $TYPE-$subjectid 1>/dev/null && echo "$TYPE-$subjectid already in queue" && exit 1
+     #  var=val,var=val to var=val var=val 
+     cmd="$(echo $vars|tr , ' ') $scriptloc/queReconall.sh "
+     tmux new-session -s freesurfer -d # may fail because already exists
+     tmux new-window -t freesurfer -n "$TYPE-$subjectid" -d "$cmd"
+     echo -e "# ran\n# $cmd\n"
+     echo -e "see: tmux attach -t freesurfer # $TYPE-$subjectid"
+  elif [ -n "$USESHELL" ]; then
+     set -xe
+     cmd="$(echo $vars|tr , ' ') $scriptloc/queReconall.sh "
+     eval $cmd
+     set +xe
+  else
+   # check if already in queue
+   qstat -f | grep FS-$TYPE-$subjectid 1>/dev/null && echo "FS-$TYPE-$subjectid already in queue" && exit 1
+   set -ex
+   # use -h to hold by default
+   qsub -m abe -M $EMAILS \
+        -e $scriptloc/log  -o $scriptloc/log \
+        -N "FS-$TYPE-$subjectid" \
+        -v $vars \
+        $scriptloc/queReconall.sh 
+   set +ex
+
+  fi
 }
 
-# raid is mounted funny depending on host
-case $HOSTNAME in
-*gromit*)
-   # as of 2013-03-11 this is unnessary. Mathew has added the sym link to gromit
-   LUNADIR="/raid/r3/p2/Luna"
-   ;;
-*wallace*)
-   LUNADIR="/data/Luna1"
-   ;;
-*)
-  echo dont know what to do on $HOSTNAME && exit 1;;
-esac
 
 # exit if no arguments
 [ -z "$1" ] && helpmsg
@@ -90,27 +108,12 @@ while getopts 's:i:n:t:e:d:r:ah' switch; do
  esac
 done
 
-###### TYPE
-# if we can figure out what we're dealing with by looking at type:
-# generally we have 
-#  /data/Luna1/Raw/TYPE/scandate_subjid
-#  /data/Luna1/TYPE/{FS_Subjects,mprage}
-case $TYPE in 
- WM|"WorkingMemory") SUBJECTS_DIR="/data/Luna1/WorkingMemory/FS_Subjects/";TYPE=WorkingMemory ;; # added 2013-03-12
- "Reward")           SUBJECTS_DIR="/data/Luna1/Reward/FS_Subjects/"; rawdir="MRCTR"; TYPE="Reward" ;;
- AF|"AutFace")       SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects/";   TYPE=Autism_Faces ;;
- "AF2")              SUBJECTS_DIR="/data/Luna1/Autism_Faces/FS_Subjects_2/"; TYPE=Autism_Faces ;;
- MM|MultiModal)      SUBJECTS_DIR="/data/Luna1/Multimodal/FS_Subjects/" ;  TYPE=MultiModal; rageStorageSuffix=ANTI;rageSuperSuffix="mprage/" ;;
- # mprage sorted luna1/multimodal/ANTI/$subjid/mprage/  while the rest are $type/mprage/$subjid/
- "list")             listtypes;;
- "")                 ;; # no one says you have to put a type in
- *)                  echo "Unknown type! use:" && listtypes ;;
-esac
+## get type information, set
+# SUBJECTS_DIR, TYPE, rawdir, ragepat, rageStorageSuffix, rageSuperSuffix
+source determineType.src.bash
 
 # sane defaults if these aren't provided
-[ -z "$TYPE" ]      && TYPE=$(basename $(dirname $SUBJECTS_DIR))
 [ -z "$EMAILS" ]    && EMAILS="willforan+upmc@gmail.com"
-[ -z "$rawdir" ]    && rawdir=$TYPE
 
 
 #### Sanity checks ######
@@ -130,8 +133,6 @@ fi
 # used for both qsub commands
 scriptloc=$(dirname $0)
 
-# check if already in queue
-qstat -f | grep FS-$TYPE-$subjectid 1>/dev/null && echo "FS-$TYPE-$subjectid already in queue" && exit 1
 
 ### AGAIN  -- run failed FS on existing subject
 # options sanity check
@@ -141,12 +142,7 @@ if [ -d "$SUBJECTS_DIR/$subjectid/" ]; then
  [ -z "$again" ] && echo "$SUBJECTS_DIR/$subjectid/ exists! use -a to run FS again" && exit 1
 
  set -x
- qsub -m abe -M $EMAILS \
-      -e $scriptloc/log  -o $scriptloc/log \
-      -N "FS-$TYPE-$subjectid" \
-      -v subjdir="${SUBJECTS_DIR}",subjectid="$subjectid" \
-      $scriptloc/queReconallRedo.sh 
- set +x
+ runit "subjdir=\"${SUBJECTS_DIR}\",subjectid=\"$subjectid\" "
  exit 0
 fi
 
@@ -163,17 +159,14 @@ if [ -z "$dcmdir" -a -z "$niifile" ]; then
  #  * rawdir/subject/*rage* is a directory with mprage
  #
 
- dcmdir=$(find $LUNADIR/Raw/$rawdir/$subjectid/ -maxdepth 1 -mindepth 1 -type d -iname \*rage\*)
+ dcmdir=$(find $RAWDIR/$subjectid/ -maxdepth 1 -mindepth 1 -type d -iname \*$ragepatt\*)
  # this dies if no mprage dirs are found, or if more than one exists
- [ ! -d "$dcmdir" ] && echo "raw not where expected for $subjectid ($LUNADIR/Raw/$rawdir/$subjectid/*rage*/ = '$dcmdir'), use -d" && exit 1
+ [ ! -d "$dcmdir" ] && echo "raw not where expected for $subjectid ($LUNADIR/Raw/$rawdir/$subjectid/*$ragepatt*/ = '$dcmdir'), use -d" && exit 1
 
  #echo $dcmdir
  #exit
 fi
 
-
-# where in the Study folder should mprage files be stored?
-[ -z "$rageStorageSuffix" ] && rageStorageSuffix=mprage
 
 # try using dcmdir to make and set niifile
 if [ -n "$dcmdir" -a -z "$niifile" ]; then
@@ -231,21 +224,5 @@ SUBJECTS_DIR=$(cd $(dirname $SUBJECTS_DIR); echo $(pwd)/$(basename $SUBJECTS_DIR
 tail -n1 ${SUBJECTS_DIR}/$subjectid/scripts/recon-all.log 2>/dev/null | 
   grep 'without error' && echo "already finished without error" && exit 1
 
-
-if [ -z "$USETMUX" ]; then
- set -ex
- # use -h to hold by default
- qsub -m abe -M $EMAILS \
-      -e $scriptloc/log  -o $scriptloc/log \
-      -N "FS-$TYPE-$subjectid" \
-      -v subjectid="$subjectid",niifile="${niifile##$LUNADIR}",subjdir="${SUBJECTS_DIR##$LUNADIR}",TYPE="$TYPE" \
-      $scriptloc/queReconall.sh 
-
- set +ex
-else
-   cmd="subjectid=\"$subjectid\" niifile=\"${niifile##$LUNADIR}\" subjdir=\"${SUBJECTS_DIR##$LUNADIR}\" TYPE=\"$TYPE\" $scriptloc/queReconall.sh "
-   tmux new-session -s freesurfer -d # may fail because already exists
-   tmux new-window -t freesurfer -n "$TYPE-$subjectid" -d "$cmd"
-   echo "see: tmux attach -t freesurfer # $TYPE-$subjectid"
-fi
-
+set -x
+runit
